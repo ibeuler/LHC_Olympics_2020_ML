@@ -1,0 +1,28 @@
+# OS / misc
+Thumbs.db
+Desktop.ini
+
+DATA/
+
+# Python junk
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Data & Models (Too large for git)
+data/
+outputs/
+*.h5
+*.root
+
+# IDE settings
+.vscode/
+.idea/
