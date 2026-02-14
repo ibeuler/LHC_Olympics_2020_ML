@@ -1,0 +1,18 @@
+# Core
+numpy
+scipy
+pandas
+pyyaml
+h5py
+
+# Plotting
+matplotlib
+mplhep
+
+# ML (choose your flavor)
+torch
+
+# Optional (often tricky on Windows; install separately if needed)
+# pyjet
+# fastjet
+# wandb

@@ -1,0 +1,30 @@
+project: lhc-olympics-2020
+seed: 42
+
+data:
+  raw_dir: data/raw
+  processed_dir: data/processed
+  external_dir: data/external
+
+preprocessing:
+  jet_algorithm: antikt
+  jet_radius: 0.4
+  jet_pt_min: 20.0
+
+model:
+  type: autoencoder  # autoencoder | classifier
+  input_dim: 128
+  latent_dim: 16
+  hidden_dim: 256
+
+train:
+  batch_size: 512
+  lr: 0.001
+  epochs: 10
+  device: cpu
+
+outputs:
+  root: outputs
+  models: outputs/models
+  logs: outputs/logs
+  figures: outputs/figures
