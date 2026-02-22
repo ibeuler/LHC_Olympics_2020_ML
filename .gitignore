@@ -26,3 +26,6 @@ outputs/
 # IDE settings
 .vscode/
 .idea/
+
+#Virtual Environment
+venv/
