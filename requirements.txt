@@ -1,17 +1,17 @@
 # Core
-numpy
-scipy
-pandas
-pyyaml
-h5py
-scikit-learn
+numpy==2.4.2
+scipy==1.17.1
+pandas==3.0.1
+pyyaml==6.0.3
+h5py==3.15.1
+scikit-learn==1.8.0
 
 # Plotting
-matplotlib
-mplhep
+matplotlib==3.10.8
+mplhep==1.1.2
 
 # ML (choose your flavor)
-torch
+torch==2.10.0
 
 # Optional (often tricky on Windows/macOS; install separately if needed)
 # pyjet
