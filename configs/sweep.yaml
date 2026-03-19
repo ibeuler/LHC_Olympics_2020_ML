@@ -11,4 +11,5 @@ parameters:
   train.batch_size:
     values: [256, 512, 1024]
   model.latent_dim:
-    values: [8, 16, 32]
+    values: [8, 16, 32] 
+    
