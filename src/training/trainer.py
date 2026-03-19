@@ -55,12 +55,12 @@ def validate(
     with torch.no_grad():
         for batch in dataloader:
             if model_type == "autoencoder":
-                x = batch[0].to(device) if isinstance(batch, (list, tuple)) else batch.to(device)
+                x = batch[0].to(device, non_blocking=True) if isinstance(batch, (list, tuple)) else batch.to(device, non_blocking=True)
                 x_hat, _ = model(x)
                 loss = criterion(x_hat, x)
             else:  # classifier
                 x, y = batch
-                x, y = x.to(device), y.to(device)
+                x, y = x.to(device, non_blocking=True), y.to(device, non_blocking=True)
                 logits = model(x)
                 loss = criterion(logits, y)
 
@@ -122,12 +122,12 @@ def train(
             optimizer.zero_grad()
 
             if config.model_type == "autoencoder":
-                x = batch[0].to(device) if isinstance(batch, (list, tuple)) else batch.to(device)
+                x = batch[0].to(device, non_blocking=True) if isinstance(batch, (list, tuple)) else batch.to(device, non_blocking=True)
                 x_hat, _ = model(x)
                 loss = criterion(x_hat, x)
             else:
                 x, y = batch
-                x, y = x.to(device), y.to(device)
+                x, y = x.to(device, non_blocking=True), y.to(device, non_blocking=True)
                 logits = model(x)
                 loss = criterion(logits, y)
 
