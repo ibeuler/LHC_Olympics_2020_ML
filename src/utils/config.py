@@ -8,6 +8,8 @@ import yaml
 
 from src.models.autoencoder import SimpleAutoencoder
 from src.models.classifier import MLPClassifier
+from src.models.part_autoencoder import ParTAutoencoder
+from src.models.part_classifier import ParTClassifier
 
 
 def load_config(path: str | Path) -> Dict[str, Any]:
@@ -57,7 +59,30 @@ def get_model(config: Dict[str, Any]):
         return MLPClassifier(
             input_dim=input_dim, hidden_dim=hidden_dim, num_classes=num_classes
         )
+    elif model_type == "part_autoencoder":
+        return ParTAutoencoder(
+            input_dim=input_dim,
+            n_particles=model_cfg.get("n_particles", input_dim // 3),
+            embed_dims=model_cfg.get("embed_dims", [128, 512, 128]),
+            pair_embed_dims=model_cfg.get("pair_embed_dims", [64, 64, 64]),
+            num_heads=model_cfg.get("num_heads", 8),
+            num_layers=model_cfg.get("num_layers", 8),
+            num_cls_layers=model_cfg.get("num_cls_layers", 2),
+            decoder_hidden_dim=model_cfg.get("decoder_hidden_dim", 256),
+        )
+    elif model_type == "part_classifier":
+        return ParTClassifier(
+            input_dim=input_dim,
+            n_particles=model_cfg.get("n_particles", input_dim // 3),
+            num_classes=model_cfg.get("num_classes", 2),
+            embed_dims=model_cfg.get("embed_dims", [128, 512, 128]),
+            pair_embed_dims=model_cfg.get("pair_embed_dims", [64, 64, 64]),
+            num_heads=model_cfg.get("num_heads", 8),
+            num_layers=model_cfg.get("num_layers", 8),
+            num_cls_layers=model_cfg.get("num_cls_layers", 2),
+        )
     else:
         raise ValueError(
-            f"Unknown model type: {model_type!r}. Choose 'autoencoder' or 'classifier'."
+            f"Unknown model type: {model_type!r}. "
+            "Choose 'autoencoder', 'classifier', 'part_autoencoder', or 'part_classifier'."
         )
