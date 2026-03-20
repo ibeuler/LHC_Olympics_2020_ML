@@ -1,0 +1,29 @@
+project: lhc-olympics-2020
+seed: 42
+
+data:
+  raw_dir: data/raw
+  processed_dir: data/processed
+
+model:
+  type: part_autoencoder
+  input_dim: 2100
+  n_particles: 700
+  embed_dims: [128, 512, 128]
+  pair_embed_dims: [64, 64, 64]
+  num_heads: 8
+  num_layers: 8
+  num_cls_layers: 2
+  decoder_hidden_dim: 256
+
+train:
+  batch_size: 128
+  lr: 0.001
+  epochs: 20
+  device: cpu  # change to cuda if available
+
+outputs:
+  root: outputs
+  models: outputs/models
+  logs: outputs/logs
+  figures: outputs/figures
