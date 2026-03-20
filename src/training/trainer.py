@@ -23,7 +23,7 @@ class TrainConfig:
     epochs: int = 10
     seed: int = 42
     device: str = "cpu"
-    model_type: str = "autoencoder"  # "autoencoder" | "classifier"
+    model_type: str = "autoencoder"  # "autoencoder" | "classifier" | "part_autoencoder" | "part_classifier"
 
 
 
@@ -54,7 +54,7 @@ def validate(
 
     with torch.no_grad():
         for batch in dataloader:
-            if model_type == "autoencoder":
+            if model_type in ("autoencoder", "part_autoencoder"):
                 x = batch[0].to(device, non_blocking=True) if isinstance(batch, (list, tuple)) else batch.to(device, non_blocking=True)
                 x_hat, _ = model(x)
                 loss = criterion(x_hat, x)
@@ -103,7 +103,7 @@ def train(
     device = torch.device(config.device)
     model = model.to(device)
 
-    if config.model_type == "autoencoder":
+    if config.model_type in ("autoencoder", "part_autoencoder"):
         criterion = nn.MSELoss()
     else:
         criterion = nn.CrossEntropyLoss()
@@ -121,7 +121,7 @@ def train(
         for batch in train_loader:
             optimizer.zero_grad()
 
-            if config.model_type == "autoencoder":
+            if config.model_type in ("autoencoder", "part_autoencoder"):
                 x = batch[0].to(device, non_blocking=True) if isinstance(batch, (list, tuple)) else batch.to(device, non_blocking=True)
                 x_hat, _ = model(x)
                 loss = criterion(x_hat, x)
