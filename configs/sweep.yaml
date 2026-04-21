@@ -1,14 +1,20 @@
-# Example hyperparameter sweep config (adapt to your sweep tool, e.g. WandB)
+program: scripts/train.py
 method: random
 metric:
   name: val_loss
   goal: minimize
 parameters:
-  train.lr:
+  lr:
     distribution: log_uniform_values
     min: 1e-4
     max: 3e-3
-  train.batch_size:
+  batch_size:
     values: [256, 512, 1024]
-  model.latent_dim:
+  model_type:
+    values: [vae, autoencoder]
+  latent_dim:
     values: [8, 16, 32]
+  beta:
+    distribution: log_uniform_values
+    min: 0.1
+    max: 4.0

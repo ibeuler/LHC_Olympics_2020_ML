@@ -12,10 +12,11 @@ preprocessing:
   jet_pt_min: 20.0
 
 model:
-  type: autoencoder  # autoencoder | classifier
+  type: vae  # autoencoder | vae | classifier
   input_dim: 128
   latent_dim: 16
   hidden_dim: 256
+  beta: 1.0  # VAE KL weight (beta-VAE: try 0.1–4.0)
 
 train:
   batch_size: 512

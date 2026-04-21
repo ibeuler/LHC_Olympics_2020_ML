@@ -6,7 +6,7 @@ from typing import Any, Dict
 
 import yaml
 
-from src.models.autoencoder import SimpleAutoencoder
+from src.models.autoencoder import SimpleAutoencoder, VariationalAutoencoder
 from src.models.classifier import MLPClassifier
 
 
@@ -51,6 +51,13 @@ def get_model(config: Dict[str, Any]):
     if model_type == "autoencoder":
         latent_dim = model_cfg.get("latent_dim", 16)
         return SimpleAutoencoder(input_dim=input_dim, latent_dim=latent_dim)
+    elif model_type == "vae":
+        latent_dim = model_cfg.get("latent_dim", 16)
+        hidden_dim = model_cfg.get("hidden_dim", 256)
+        beta = model_cfg.get("beta", 1.0)
+        return VariationalAutoencoder(
+            input_dim=input_dim, latent_dim=latent_dim, hidden_dim=hidden_dim, beta=beta
+        )
     elif model_type == "classifier":
         hidden_dim = model_cfg.get("hidden_dim", 256)
         num_classes = model_cfg.get("num_classes", 2)
@@ -59,5 +66,5 @@ def get_model(config: Dict[str, Any]):
         )
     else:
         raise ValueError(
-            f"Unknown model type: {model_type!r}. Choose 'autoencoder' or 'classifier'."
+            f"Unknown model type: {model_type!r}. Choose 'autoencoder', 'vae', or 'classifier'."
         )

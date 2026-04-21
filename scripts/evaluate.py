@@ -34,7 +34,7 @@ def parse_args() -> argparse.Namespace:
                     help="Output directory for figures and results")
     p.add_argument("--device", type=str, default="cpu")
     p.add_argument("--model-type", type=str, default=None,
-                    choices=["autoencoder", "classifier"])
+                    choices=["autoencoder", "vae", "classifier"])
     return p.parse_args()
 
 
@@ -53,8 +53,8 @@ def evaluate_autoencoder(
         for batch in dataloader:
             x, y = batch
             x = x.to(device)
-            x_hat, _ = model(x)
-            # Per-sample MSE: anomaly score
+            out = model(x)
+            x_hat = out[0]  # works for both (x_hat, z) and (x_hat, mu, log_var)
             mse = ((x_hat - x) ** 2).mean(dim=1)
             all_scores.append(mse.cpu().numpy())
             all_labels.append(y.numpy())
@@ -69,7 +69,8 @@ def evaluate_autoencoder(
     print(f"ROC curve saved. AUC = {auc_val:.4f}")
 
     result = bump_hunt(scores)
-    print(f"\nBump Hunt Results:")
+    print(f"\nBump Hunt Results (sliding-window scan):")
+    print(f"  Best window:         {result.best_window[0]:.3f} – {result.best_window[1]:.3f}")
     print(f"  Z-score:             {result.z_score}")
     print(f"  p-value:             {result.p_value}")
     print(f"  Signal count:        {result.signal_count}")
@@ -129,8 +130,9 @@ def main() -> None:
         print("No data file specified — using synthetic dataset for evaluation.")
         dataset = SyntheticLHCDataset(n_samples=5_000, input_dim=input_dim)
 
-    _, eval_loader = build_dataloaders(
-        dataset, batch_size=512, val_fraction=1.0, seed=cfg.get("seed", 42)
+    # Use the held-out test split for evaluation
+    _, _, eval_loader = build_dataloaders(
+        dataset, batch_size=512, seed=cfg.get("seed", 42)
     )
 
     cfg.setdefault("model", {})
@@ -147,7 +149,7 @@ def main() -> None:
     figures_dir = args.output / "figures"
     figures_dir.mkdir(parents=True, exist_ok=True)
 
-    if model_type == "autoencoder":
+    if model_type in ("autoencoder", "vae"):
         evaluate_autoencoder(model, eval_loader, device, figures_dir)
     else:
         evaluate_classifier(model, eval_loader, device, figures_dir)

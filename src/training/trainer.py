@@ -14,6 +14,13 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
 
+try:
+    import wandb
+    _WANDB_AVAILABLE = True
+except ImportError:
+    wandb = None  # type: ignore
+    _WANDB_AVAILABLE = False
+
 
 @dataclass
 class TrainConfig:
@@ -23,7 +30,9 @@ class TrainConfig:
     epochs: int = 10
     seed: int = 42
     device: str = "cpu"
-    model_type: str = "autoencoder"  # "autoencoder" | "classifier"
+    model_type: str = "autoencoder"  # "autoencoder" | "vae" | "classifier"
+    wandb_project: Optional[str] = None  # set to enable W&B logging
+    wandb_run_name: Optional[str] = None
 
 
 
@@ -54,7 +63,11 @@ def validate(
 
     with torch.no_grad():
         for batch in dataloader:
-            if model_type == "autoencoder":
+            if model_type == "vae":
+                x = batch[0].to(device, non_blocking=True) if isinstance(batch, (list, tuple)) else batch.to(device, non_blocking=True)
+                x_hat, mu, log_var = model(x)
+                loss = model.vae_loss(x, x_hat, mu, log_var)
+            elif model_type == "autoencoder":
                 x = batch[0].to(device, non_blocking=True) if isinstance(batch, (list, tuple)) else batch.to(device, non_blocking=True)
                 x_hat, _ = model(x)
                 loss = criterion(x_hat, x)
@@ -103,6 +116,20 @@ def train(
     device = torch.device(config.device)
     model = model.to(device)
 
+    use_wandb = _WANDB_AVAILABLE and config.wandb_project is not None
+    if use_wandb:
+        wandb.init(
+            project=config.wandb_project,
+            name=config.wandb_run_name,
+            config={
+                "model_type": config.model_type,
+                "lr": config.lr,
+                "batch_size": config.batch_size,
+                "epochs": config.epochs,
+            },
+            reinit=True,
+        )
+
     if config.model_type == "autoencoder":
         criterion = nn.MSELoss()
     else:
@@ -121,7 +148,11 @@ def train(
         for batch in train_loader:
             optimizer.zero_grad()
 
-            if config.model_type == "autoencoder":
+            if config.model_type == "vae":
+                x = batch[0].to(device, non_blocking=True) if isinstance(batch, (list, tuple)) else batch.to(device, non_blocking=True)
+                x_hat, mu, log_var = model(x)
+                loss = model.vae_loss(x, x_hat, mu, log_var)
+            elif config.model_type == "autoencoder":
                 x = batch[0].to(device, non_blocking=True) if isinstance(batch, (list, tuple)) else batch.to(device, non_blocking=True)
                 x_hat, _ = model(x)
                 loss = criterion(x_hat, x)
@@ -153,6 +184,9 @@ def train(
             f"val_loss: {avg_val_loss:.6f}"
         )
 
+        if use_wandb:
+            wandb.log({"train_loss": avg_train_loss, "val_loss": avg_val_loss, "epoch": epoch})
+
         if avg_val_loss < best_val_loss:
             best_val_loss = avg_val_loss
             torch.save(model.state_dict(), output_dir / "best_model.pt")
@@ -162,6 +196,10 @@ def train(
     _save_loss_log(loss_log, output_dir / "loss_log.csv")
 
     model.load_state_dict(torch.load(output_dir / "best_model.pt", weights_only=True))
+
+    if use_wandb:
+        wandb.summary["best_val_loss"] = best_val_loss
+        wandb.finish()
 
     print(f"\nTraining complete. Best val_loss: {best_val_loss:.6f}")
     print(f"Checkpoint saved to {output_dir / 'best_model.pt'}")

@@ -8,7 +8,7 @@ from pathlib import Path
 # Allow running as `python scripts/train.py` from the repo root
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from src.data.dataset import LHCDataset, SyntheticLHCDataset, build_dataloaders
+from src.data.dataset import LHCDataset, SyntheticLHCDataset, BackgroundOnlyDataset, build_dataloaders
 from src.training.trainer import TrainConfig, train
 from src.utils.config import load_config, get_model
 
@@ -25,7 +25,11 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--data", type=Path, default=None,
                     help="Path to HDF5 data file. If not given, synthetic data is used.")
     p.add_argument("--model-type", type=str, default=None,
-                    choices=["autoencoder", "classifier"])
+                    choices=["autoencoder", "vae", "classifier"])
+    p.add_argument("--background-only", action="store_true",
+                    help="Train on background events only (recommended for AE/VAE)")
+    p.add_argument("--wandb-project", type=str, default=None,
+                    help="W&B project name to enable experiment tracking")
     return p.parse_args()
 
 
@@ -57,7 +61,12 @@ def main() -> None:
         input_dim = model_cfg.get("input_dim", 128)
         dataset = SyntheticLHCDataset(n_samples=10_000, input_dim=input_dim)
 
-    train_loader, val_loader = build_dataloaders(
+    if args.background_only and model_type in ("autoencoder", "vae"):
+        print("Background-only mode: filtering to label==0 events for training.")
+        dataset = BackgroundOnlyDataset(dataset)
+        print(f"  {len(dataset)} background events retained.")
+
+    train_loader, val_loader, _ = build_dataloaders(
         dataset, batch_size=batch_size, seed=cfg.get("seed", 42)
     )
 
@@ -75,6 +84,7 @@ def main() -> None:
         epochs=epochs,
         device=device,
         model_type=model_type,
+        wandb_project=args.wandb_project,
     )
 
     trained_model, loss_log = train(
