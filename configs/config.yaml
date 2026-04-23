@@ -12,11 +12,22 @@ preprocessing:
   jet_pt_min: 20.0
 
 model:
-  type: vae  # autoencoder | vae | classifier
+  type: part_ae  # autoencoder | vae | classifier | part_ae
+
+  # Flat-model params (autoencoder / vae / classifier):
   input_dim: 128
   latent_dim: 16
   hidden_dim: 256
   beta: 1.0  # VAE KL weight (beta-VAE: try 0.1–4.0)
+
+  # ParT params (part_ae):
+  n_particles: 200          # max particles per event (truncate/pad to this)
+  n_particle_features: 3    # pT, eta, phi
+  embed_dim: 128            # particle embedding dimension d
+  interaction_dim: 8        # interaction embedding dimension d'
+  n_heads: 8                # attention heads (must divide embed_dim)
+  n_layers: 8               # particle attention blocks
+  n_class_layers: 2         # class attention blocks
 
 train:
   batch_size: 512

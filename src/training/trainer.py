@@ -14,6 +14,8 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
 
+from src.models.particle_transformer import part_ae_loss
+
 try:
     import wandb
     _WANDB_AVAILABLE = True
@@ -30,7 +32,7 @@ class TrainConfig:
     epochs: int = 10
     seed: int = 42
     device: str = "cpu"
-    model_type: str = "autoencoder"  # "autoencoder" | "vae" | "classifier"
+    model_type: str = "autoencoder"  # "autoencoder" | "vae" | "classifier" | "part_ae"
     wandb_project: Optional[str] = None  # set to enable W&B logging
     wandb_run_name: Optional[str] = None
 
@@ -63,7 +65,11 @@ def validate(
 
     with torch.no_grad():
         for batch in dataloader:
-            if model_type == "vae":
+            if model_type == "part_ae":
+                x, mask = batch[0].to(device, non_blocking=True), batch[1].to(device, non_blocking=True)
+                x_hat, _ = model(x, mask)
+                loss = part_ae_loss(x, x_hat, mask)
+            elif model_type == "vae":
                 x = batch[0].to(device, non_blocking=True) if isinstance(batch, (list, tuple)) else batch.to(device, non_blocking=True)
                 x_hat, mu, log_var = model(x)
                 loss = model.vae_loss(x, x_hat, mu, log_var)
@@ -130,7 +136,7 @@ def train(
             reinit=True,
         )
 
-    if config.model_type == "autoencoder":
+    if config.model_type in ("autoencoder", "part_ae"):
         criterion = nn.MSELoss()
     else:
         criterion = nn.CrossEntropyLoss()
@@ -148,7 +154,11 @@ def train(
         for batch in train_loader:
             optimizer.zero_grad()
 
-            if config.model_type == "vae":
+            if config.model_type == "part_ae":
+                x, mask = batch[0].to(device, non_blocking=True), batch[1].to(device, non_blocking=True)
+                x_hat, _ = model(x, mask)
+                loss = part_ae_loss(x, x_hat, mask)
+            elif config.model_type == "vae":
                 x = batch[0].to(device, non_blocking=True) if isinstance(batch, (list, tuple)) else batch.to(device, non_blocking=True)
                 x_hat, mu, log_var = model(x)
                 loss = model.vae_loss(x, x_hat, mu, log_var)

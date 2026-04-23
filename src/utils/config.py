@@ -8,6 +8,7 @@ import yaml
 
 from src.models.autoencoder import SimpleAutoencoder, VariationalAutoencoder
 from src.models.classifier import MLPClassifier
+from src.models.particle_transformer import ParticleTransformerAE
 
 
 def load_config(path: str | Path) -> Dict[str, Any]:
@@ -64,7 +65,17 @@ def get_model(config: Dict[str, Any]):
         return MLPClassifier(
             input_dim=input_dim, hidden_dim=hidden_dim, num_classes=num_classes
         )
+    elif model_type == "part_ae":
+        return ParticleTransformerAE(
+            in_features=model_cfg.get("n_particle_features", 3),
+            embed_dim=model_cfg.get("embed_dim", 128),
+            interaction_dim=model_cfg.get("interaction_dim", 8),
+            n_heads=model_cfg.get("n_heads", 8),
+            n_layers=model_cfg.get("n_layers", 8),
+            n_class_layers=model_cfg.get("n_class_layers", 2),
+        )
     else:
         raise ValueError(
-            f"Unknown model type: {model_type!r}. Choose 'autoencoder', 'vae', or 'classifier'."
+            f"Unknown model type: {model_type!r}. "
+            "Choose 'autoencoder', 'vae', 'classifier', or 'part_ae'."
         )

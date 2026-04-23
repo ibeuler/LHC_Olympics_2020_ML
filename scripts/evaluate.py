@@ -34,7 +34,7 @@ def parse_args() -> argparse.Namespace:
                     help="Output directory for figures and results")
     p.add_argument("--device", type=str, default="cpu")
     p.add_argument("--model-type", type=str, default=None,
-                    choices=["autoencoder", "vae", "classifier"])
+                    choices=["autoencoder", "vae", "classifier", "part_ae"])
     return p.parse_args()
 
 
@@ -43,33 +43,48 @@ def evaluate_autoencoder(
     dataloader,
     device: torch.device,
     figures_dir: Path,
+    model_type: str = "autoencoder",
 ) -> None:
-    """Evaluate an autoencoder by computing reconstruction loss as anomaly score."""
+    """Evaluate an AE/VAE/ParT-AE by computing reconstruction loss as anomaly score."""
     model.eval()
     all_scores = []
     all_labels = []
 
     with torch.no_grad():
         for batch in dataloader:
-            x, y = batch
-            x = x.to(device)
-            out = model(x)
-            x_hat = out[0]  # works for both (x_hat, z) and (x_hat, mu, log_var)
-            mse = ((x_hat - x) ** 2).mean(dim=1)
-            all_scores.append(mse.cpu().numpy())
+            if model_type == "part_ae":
+                x, mask, y = (
+                    batch[0].to(device),
+                    batch[1].to(device),
+                    batch[2],
+                )
+                x_hat, _ = model(x, mask)
+                scores = model.anomaly_score(x, x_hat, mask)
+            else:
+                x, y = batch
+                x = x.to(device)
+                out = model(x)
+                x_hat = out[0]  # works for both (x_hat, z) and (x_hat, mu, log_var)
+                if model_type == "vae":
+                    # For VAE we could use ELBO, but MSE is often used for anomaly scores
+                    scores = ((x_hat - x) ** 2).mean(dim=1)
+                else:
+                    scores = ((x_hat - x) ** 2).mean(dim=1)
+
+            all_scores.append(scores.cpu().numpy())
             all_labels.append(y.numpy())
 
     scores = np.concatenate(all_scores)
     labels = np.concatenate(all_labels)
 
-    plot_anomaly_scores(scores, labels, figures_dir / "anomaly_scores.png")
-    print(f"Anomaly score plot saved to {figures_dir / 'anomaly_scores.png'}")
+    plot_anomaly_scores(scores, labels, figures_dir / f"{model_type}_anomaly_scores.png")
+    print(f"Anomaly score plot saved to {figures_dir / f'{model_type}_anomaly_scores.png'}")
 
-    auc_val = plot_roc_curve(labels, scores, figures_dir / "roc_curve.png")
+    auc_val = plot_roc_curve(labels, scores, figures_dir / f"{model_type}_roc_curve.png")
     print(f"ROC curve saved. AUC = {auc_val:.4f}")
 
     result = bump_hunt(scores)
-    print(f"\nBump Hunt Results (sliding-window scan):")
+    print(f"\nBump Hunt Results (sliding-window scan) for {model_type}:")
     print(f"  Best window:         {result.best_window[0]:.3f} – {result.best_window[1]:.3f}")
     print(f"  Z-score:             {result.z_score}")
     print(f"  p-value:             {result.p_value}")
@@ -102,7 +117,7 @@ def evaluate_classifier(
     probs = np.concatenate(all_probs)
     labels = np.concatenate(all_labels)
 
-    auc_val = plot_roc_curve(labels, probs, figures_dir / "roc_curve.png")
+    auc_val = plot_roc_curve(labels, probs, figures_dir / "classifier_roc_curve.png")
     print(f"ROC curve saved. AUC = {auc_val:.4f}")
 
     plot_anomaly_scores(probs, labels, figures_dir / "classifier_scores.png",
@@ -121,14 +136,33 @@ def main() -> None:
     model_cfg = cfg.get("model", {})
     model_type = args.model_type or model_cfg.get("type", "autoencoder")
     input_dim = model_cfg.get("input_dim", 128)
+    n_particles = model_cfg.get("n_particles", 200)
+    n_particle_features = model_cfg.get("n_particle_features", 3)
 
     if args.data is not None:
         print(f"Loading data from {args.data} ...")
-        dataset = LHCDataset(args.data)
+        if model_type == "part_ae":
+            dataset = LHCDataset(
+                args.data,
+                particle_mode=True,
+                n_particles=n_particles,
+                n_particle_features=n_particle_features,
+            )
+        else:
+            dataset = LHCDataset(args.data)
         input_dim = dataset.input_dim
     else:
         print("No data file specified — using synthetic dataset for evaluation.")
-        dataset = SyntheticLHCDataset(n_samples=5_000, input_dim=input_dim)
+        if model_type == "part_ae":
+            from src.data.dataset import SyntheticParticleDataset
+            dataset = SyntheticParticleDataset(
+                n_samples=1_000,
+                n_particles=n_particles,
+                n_features=n_particle_features,
+            )
+            input_dim = n_particle_features
+        else:
+            dataset = SyntheticLHCDataset(n_samples=5_000, input_dim=input_dim)
 
     # Use the held-out test split for evaluation
     _, _, eval_loader = build_dataloaders(
@@ -138,6 +172,10 @@ def main() -> None:
     cfg.setdefault("model", {})
     cfg["model"]["type"] = model_type
     cfg["model"]["input_dim"] = input_dim
+    if model_type == "part_ae":
+        cfg["model"]["n_particles"] = n_particles
+        cfg["model"]["n_particle_features"] = n_particle_features
+
     model = get_model(cfg)
 
     device = torch.device(args.device)
@@ -149,8 +187,8 @@ def main() -> None:
     figures_dir = args.output / "figures"
     figures_dir.mkdir(parents=True, exist_ok=True)
 
-    if model_type in ("autoencoder", "vae"):
-        evaluate_autoencoder(model, eval_loader, device, figures_dir)
+    if model_type in ("autoencoder", "vae", "part_ae"):
+        evaluate_autoencoder(model, eval_loader, device, figures_dir, model_type)
     else:
         evaluate_classifier(model, eval_loader, device, figures_dir)
 
