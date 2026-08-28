@@ -2,7 +2,7 @@
 Thumbs.db
 Desktop.ini
 local_archive/
-DATA/
+/DATA/
 
 # Python junk
 __pycache__/
@@ -18,7 +18,7 @@ __pycache__/
 .ipynb_checkpoints/
 
 # Data & Models (Too large for git)
-data/
+/data/
 outputs/
 *.h5
 *.root

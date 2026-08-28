@@ -16,7 +16,7 @@ model:
   num_layers: 8
   num_cls_layers: 2
   decoder_hidden_dim: 256
-  use_pairwise: true
+  use_pairwise: false
 
 train:
   batch_size: 128

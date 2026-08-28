@@ -94,13 +94,17 @@ def test_classifier_training():
     return trained_model, dataset
 
 
-def test_plotting(loss_log_ae):
+def test_plotting():
     """Test plotting functions."""
     print("=" * 60)
     print("TEST: Plotting")
     print("=" * 60)
 
     figs = TEST_OUTPUT / "figures"
+    loss_log_ae = [
+        {"train_loss": 0.5, "val_loss": 0.6},
+        {"train_loss": 0.3, "val_loss": 0.4},
+    ]
 
     # Loss curves
     train_l = [e["train_loss"] for e in loss_log_ae]
@@ -182,8 +186,7 @@ def main():
     clf_model, clf_dataset = test_classifier_training()
 
     # Use autoencoder loss log for plotting test
-    loss_log = [{"train_loss": 0.5, "val_loss": 0.6}, {"train_loss": 0.3, "val_loss": 0.4}]
-    test_plotting(loss_log)
+    test_plotting()
 
     test_bump_hunt()
 

@@ -1,6 +1,7 @@
 # Particle Transformer Integration Plan
 
-> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
+> Historical design note: this captures the original ParT integration plan.
+> The current code and README take precedence where the implementation evolved.
 
 **Goal:** Add two ParT-based models to the LHCO2020 pipeline — a ParT Autoencoder (Version A, unsupervised anomaly detection) and a ParT Classifier (Version C, supervised transfer learning) — while keeping the existing SimpleAutoencoder and MLPClassifier fully functional.
 

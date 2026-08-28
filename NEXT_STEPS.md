@@ -1,48 +1,58 @@
-# Gelecek Adımlar ve Yapılacaklar (Roadmap)
+# Project Roadmap
 
-Bu dosya, LHC Olympics 2020 projesinde şu ana kadar tamamlanan işleri ve bundan sonra atılacak adımları içerir.
+This note summarizes the current state of the LHCO 2020 project and the most
+useful next steps.
 
-## 1. Mevcut Durum
-- **Veri Seti:** Pythia arka plan verisi (`events_LHCO2020_backgroundMC_Pythia.h5`, 1M olay) ile çalışıldı.
-- **Model:** Particle Transformer (ParT) Autoencoder kuruldu ve 20 epoch eğitildi.
-- **Değerlendirme:** GPU (`--device cuda`) kullanılarak anomali skorları ve Bump-Hunt analizi hesaplandı.
+## Current Status
 
----
+- **Data:** The pipeline has been run on one million Pythia background events
+  from `events_LHCO2020_backgroundMC_Pythia.h5`.
+- **Model:** A Particle Transformer autoencoder has been trained for 20 epochs.
+- **Evaluation:** GPU inference, anomaly scoring, and bump-hunt analysis are in
+  place. The evaluation pipeline now also reports SIC and background rejection.
 
-## 2. Sıradaki Adımlar
+## Recommended Next Steps
 
-### A. Model Eğitimini İyileştirme (Stabilite ve Hız)
-- **Learning Rate:** `lr=0.001` eğitim sırasında bazı epoch'larda NaN kaybına sebep oldu. Bir sonraki eğitimde `lr: 0.0003` kullanılmalı.
-- **Gradient Clipping:** Gradyan patlamalarını önlemek için `trainer.py` içerisine `clip_grad_norm_` eklenebilir.
-- **Batch & Worker:** `batch_size: 256` ve `num_workers: 4` ile GPU daha verimli kullanılmalı.
+### Improve Training Stability and Throughput
 
-### B. R&D Veri Seti İle Sinyal Tespiti (ROC / AUC)
-- **Veriyi İndirme:**
+- Lower the learning rate from `0.001` to `0.0003`; the larger value produced
+  NaN losses in some epochs.
+- Add `clip_grad_norm_` to `trainer.py` if gradient spikes continue.
+- Try `batch_size: 256` and `num_workers: 4` to improve GPU utilization, subject
+  to available memory and host bandwidth.
+
+### Validate on the Labelled R&D Sample
+
+Download the sample:
+
   ```bash
   python scripts/download_data.py --dataset rnd
   ```
-- **AUC Hesabı:** Etiketli R&D verisi (`events_LHCO2020_RnD.h5`) üzerinden modelin sinyal yakalama başarısı (ROC-AUC skoru) ölçülebilir:
+
+Then measure ROC AUC, SIC, and background rejection on
+`events_LHCO2020_RnD.h5`:
+
   ```bash
   python scripts/evaluate.py --checkpoint outputs/models/<model_checkpoint>.pt --config configs/part_autoencoder.yaml --data data/raw/events_LHCO2020_RnD.h5 --device cuda
   ```
 
-### C. Gözetimli Model (ParT Classifier) Eğitimi
-- Sinyal ve arka plan ayrımını doğrudan öğrenen supervised sınıflandırıcı model eğitilebilir:
+### Train the Supervised ParT Classifier
+
+Use the labelled R&D sample to train a direct signal/background classifier:
+
   ```bash
   python scripts/train.py --config configs/part_classifier.yaml --data data/raw/events_LHCO2020_RnD.h5 --device cuda
   ```
 
----
-
-## 3. Pratik Komutlar
+## Quick Command Reference
 
 ```bash
-# 1. R&D Verisini İndir
+# Download the labelled R&D sample
 python scripts/download_data.py --dataset rnd
 
-# 2. Düzeltilmiş LR ile Autoencoder Eğit
+# Train the autoencoder with the more stable learning rate
 python scripts/train.py --config configs/part_autoencoder.yaml --data data/raw/events_LHCO2020_backgroundMC_Pythia.h5 --lr 0.0003 --batch-size 256
 
-# 3. Model Değerlendir (GPU ile)
-python scripts/evaluate.py --checkpoint outputs/models/<model_adi>.pt --config configs/part_autoencoder.yaml --data data/raw/events_LHCO2020_RnD.h5 --device cuda
+# Evaluate a checkpoint on the GPU
+python scripts/evaluate.py --checkpoint outputs/models/<model_name>.pt --config configs/part_autoencoder.yaml --data data/raw/events_LHCO2020_RnD.h5 --device cuda
 ```

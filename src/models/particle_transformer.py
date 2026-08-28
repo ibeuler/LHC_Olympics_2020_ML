@@ -1,10 +1,10 @@
-"""Particle Transformer (ParT) model extracted from weaver-core.
+"""Core Particle Transformer (ParT) layers adapted from weaver-core.
 
 Paper: "Particle Transformer for Jet Tagging" - https://arxiv.org/abs/2202.03772
 Source: https://github.com/jet-universe/particle_transformer
 
-Only the core model components are included (SequenceTrimmer, Embed, PairEmbed,
-Block, ParticleTransformer). Tagger variants and sparse-tensor utilities are omitted.
+This file keeps only the pieces used by this project: sequence trimming,
+single-particle and pairwise embeddings, transformer blocks, and the ParT model.
 """
 import math
 import random
@@ -317,7 +317,15 @@ class Block(nn.Module):
         else:
             residual = x
             x = self.pre_attn_norm(x)
-            x = self.attn(x, x, x, key_padding_mask=padding_mask, attn_mask=attn_mask)[0]
+            key_padding_mask = padding_mask
+            if (
+                attn_mask is not None
+                and key_padding_mask is not None
+                and attn_mask.dtype != key_padding_mask.dtype
+            ):
+                key_padding_mask = torch.zeros_like(key_padding_mask, dtype=attn_mask.dtype)
+                key_padding_mask.masked_fill_(padding_mask, float('-inf'))
+            x = self.attn(x, x, x, key_padding_mask=key_padding_mask, attn_mask=attn_mask)[0]
 
         if self.c_attn is not None:
             tgt_len = x.size(0)
@@ -346,6 +354,7 @@ class Block(nn.Module):
 class ParticleTransformer(nn.Module):
     def __init__(self, input_dim, num_classes=None,
                  pair_input_dim=4, pair_extra_dim=0,
+                 use_pairwise=True,
                  remove_self_pair=False, use_pre_activation_pair=True,
                  embed_dims=[128, 512, 128], pair_embed_dims=[64, 64, 64],
                  num_heads=8, num_layers=8, num_cls_layers=2,
@@ -357,6 +366,7 @@ class ParticleTransformer(nn.Module):
         self.trimmer = SequenceTrimmer(enabled=trim and not for_inference)
         self.for_inference = for_inference
         self.use_amp = use_amp
+        self.use_pairwise = bool(use_pairwise)
 
         embed_dim = embed_dims[-1] if len(embed_dims) > 0 else input_dim
         default_cfg = dict(embed_dim=embed_dim, num_heads=num_heads, ffn_ratio=4,
@@ -379,7 +389,11 @@ class ParticleTransformer(nn.Module):
         self.pair_embed = PairEmbed(
             pair_input_dim, pair_extra_dim, pair_embed_dims + [cfg_block['num_heads']],
             remove_self_pair=remove_self_pair, use_pre_activation_pair=use_pre_activation_pair,
-            for_onnx=for_inference) if pair_embed_dims is not None and pair_input_dim + pair_extra_dim > 0 else None
+            for_onnx=for_inference) if (
+                self.use_pairwise
+                and pair_embed_dims is not None
+                and pair_input_dim + pair_extra_dim > 0
+            ) else None
         self.blocks = nn.ModuleList([Block(**cfg_block) for _ in range(num_layers)])
         self.cls_blocks = nn.ModuleList([Block(**cfg_cls_block) for _ in range(num_cls_layers)])
         self.norm = nn.LayerNorm(embed_dim)
@@ -407,10 +421,11 @@ class ParticleTransformer(nn.Module):
             x, v, mask, uu = self.trimmer(x, v, mask, uu)
             padding_mask = ~mask.squeeze(1)
 
-        with torch.amp.autocast('cuda', enabled=self.use_amp):
+        with torch.amp.autocast('cuda', enabled=self.use_amp and x.device.type == 'cuda'):
             x = self.embed(x).masked_fill(~mask.permute(2, 0, 1), 0)
             attn_mask = None
-            if (v is not None or uu is not None) and self.pair_embed is not None:
+            if self.use_pairwise and (v is not None or uu is not None) and self.pair_embed is not None:
+                # PyTorch computes QK^T/sqrt(d); ParT adds the learned U term here.
                 attn_mask = self.pair_embed(v, uu).view(-1, v.size(-1), v.size(-1))
 
             for block in self.blocks:

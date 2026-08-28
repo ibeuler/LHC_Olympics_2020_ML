@@ -46,6 +46,17 @@ def test_autoencoder_contract():
     assert loss.requires_grad, "Loss must be differentiable"
     print("PASSED: test_autoencoder_contract")
 
+def test_pairwise_ablation_removes_u_embedding():
+    with_pairwise = ParTAutoencoder(**TINY_CFG, use_pairwise=True, use_amp=False)
+    without_pairwise = ParTAutoencoder(**TINY_CFG, use_pairwise=False, use_amp=False)
+    assert with_pairwise.encoder.pair_embed is not None
+    assert without_pairwise.encoder.pair_embed is None
+    assert sum(p.numel() for p in with_pairwise.parameters()) > sum(
+        p.numel() for p in without_pairwise.parameters()
+    )
+    x_hat, _ = without_pairwise(torch.randn(2, 63))
+    assert x_hat.shape == (2, 63)
+
 if __name__ == "__main__":
     test_forward_shape()
     test_gradient_flow()

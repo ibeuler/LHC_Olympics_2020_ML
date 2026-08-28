@@ -16,6 +16,7 @@ model:
   num_heads: 8
   num_layers: 8
   num_cls_layers: 2
+  use_pairwise: true
 
 train:
   batch_size: 128

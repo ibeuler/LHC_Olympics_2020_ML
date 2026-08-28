@@ -70,6 +70,7 @@ def get_model(config: Dict[str, Any]):
             num_layers=model_cfg.get("num_layers", 8),
             num_cls_layers=model_cfg.get("num_cls_layers", 2),
             decoder_hidden_dim=model_cfg.get("decoder_hidden_dim", 256),
+            use_pairwise=model_cfg.get("use_pairwise", True),
             use_amp=config.get("train", {}).get("use_amp", True),
         )
     elif model_type == "part_classifier":
@@ -83,6 +84,7 @@ def get_model(config: Dict[str, Any]):
             num_heads=model_cfg.get("num_heads", 8),
             num_layers=model_cfg.get("num_layers", 8),
             num_cls_layers=model_cfg.get("num_cls_layers", 2),
+            use_pairwise=model_cfg.get("use_pairwise", True),
             use_amp=config.get("train", {}).get("use_amp", True),
         )
     else:

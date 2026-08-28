@@ -43,6 +43,25 @@ def test_part_classifier_factory():
     assert isinstance(model, ParTClassifier), f"Got {type(model)}"
     print("PASSED: test_part_classifier_factory")
 
+def test_no_pairwise_flag_reaches_encoder():
+    cfg = {
+        "model": {
+            "type": "part_autoencoder",
+            "input_dim": 63,
+            "n_particles": 21,
+            "embed_dims": [32, 32],
+            "pair_embed_dims": [16, 16],
+            "num_heads": 2,
+            "num_layers": 1,
+            "num_cls_layers": 1,
+            "use_pairwise": False,
+        },
+        "train": {"use_amp": False},
+    }
+    model = get_model(cfg)
+    assert model.use_pairwise is False
+    assert model.encoder.pair_embed is None
+
 if __name__ == "__main__":
     test_part_autoencoder_factory()
     test_part_classifier_factory()

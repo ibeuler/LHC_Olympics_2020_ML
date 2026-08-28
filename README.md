@@ -20,6 +20,7 @@ Repository for anomaly detection on the LHC Olympics 2020 dataset using machine 
 | `MLPClassifier` | classifier | `configs/config.yaml` | Baseline supervised classification |
 | `ParTAutoencoder` | part_autoencoder | `configs/part_autoencoder.yaml` | ParT-based unsupervised anomaly detection |
 | `ParTClassifier` | part_classifier | `configs/part_classifier.yaml` | ParT-based supervised transfer learning |
+| `ParTAutoencoder` (no U) | part_autoencoder | `configs/part_autoencoder_no_pairwise.yaml` | Measures the impact of the pairwise attention bias |
 
 ## Quickstart
 
@@ -43,6 +44,31 @@ Repository for anomaly detection on the LHC Olympics 2020 dataset using machine 
    # ParT classifier (supervised, requires labeled data)
    python scripts/train.py --config configs/part_classifier.yaml --data data/raw/events_LHCO2020_RnD.h5
    ```
+
+## Physics-Aware Evaluation and ParT Ablation
+
+The evaluation pipeline reports the metrics commonly used in collider analyses:
+AUC, best-threshold accuracy, maximum SIC, and background rejection at signal
+efficiencies of 0.2, 0.3, and 0.5. If no background event survives a cut, the
+calculation uses the measurable limit `1 / N_background` instead of reporting
+infinite rejection. The CSV output records this limit explicitly.
+
+To compare the baseline autoencoder with ParTAE, with and without pairwise
+kinematics, run:
+
+```bash
+python scripts/evaluate.py \
+  --model SimpleAE configs/autoencoder_lhco.yaml outputs/simple_ae.pt \
+  --model ParTAE-no-U configs/part_autoencoder_no_pairwise.yaml outputs/part_no_u.pt \
+  --model ParTAE-with-U configs/part_autoencoder.yaml outputs/part_with_u.pt \
+  --lhc-background-data data/raw/events_LHCO2020_backgroundMC_Pythia.h5
+```
+
+The command evaluates every model on the same synthetic sample and on real LHC
+background. Results are written to `report/tables/synthetic_validation.csv`,
+`report/tables/lhc_background_evaluation.csv`, and the cumulative
+`report/tables/results_summary.csv`. The report also includes parameter counts,
+ROC and score comparisons, and `report/plots/interpretability_features.png`.
 
 ## Tests
 

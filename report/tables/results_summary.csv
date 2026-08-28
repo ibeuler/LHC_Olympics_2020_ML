@@ -1,4 +1,4 @@
-run_id,dataset,model,checkpoint,auc,z_score,p_value,signal_count,background_estimate,notes
-synthetic_run_all,synthetic,SIMPLE_AUTOENCODER,outputs/run_all/autoencoder/best_model.pt,0.9903,15.809,0.0,1667.0,1134.5,Autoencoder evaluated on synthetic bg+sig labels.
-synthetic_run_all,synthetic,MLP_CLASSIFIER,outputs/run_all/classifier/best_model.pt,0.9616,,,,,Classifier evaluated on synthetic bg+sig labels.
-notebook_03_real_bg,features_K30_events_LHCO2020_backgroundMC_Pythia.npz,SIMPLE_AUTOENCODER,outputs/models/notebook_03/best_model.pt,,182.7577,0.0,88352.0,48220.1,Background-only dataset; ROC/AUC skipped.
+run_id,dataset,model,checkpoint,auc,z_score,p_value,signal_count,background_estimate,notes,accuracy,max_sic,background_rejection_at_eff_sig_0p2,background_rejection_at_eff_sig_0p3,background_rejection_at_eff_sig_0p5
+synthetic_run_all,synthetic,SIMPLE_AUTOENCODER,outputs/run_all/autoencoder/best_model.pt,0.9903,15.809,0.0,1667.0,1134.5,Autoencoder evaluated on synthetic bg+sig labels.,,,,,
+synthetic_run_all,synthetic,MLP_CLASSIFIER,outputs/run_all/classifier/best_model.pt,0.9616,,,,,Classifier evaluated on synthetic bg+sig labels.,,,,,
+notebook_03_real_bg,features_K30_events_LHCO2020_backgroundMC_Pythia.npz,SIMPLE_AUTOENCODER,outputs/models/notebook_03/best_model.pt,,182.7577,0.0,88352.0,48220.1,Background-only dataset; ROC/AUC skipped.,,,,,

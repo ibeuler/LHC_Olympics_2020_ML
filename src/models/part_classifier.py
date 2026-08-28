@@ -1,9 +1,9 @@
-"""Version C: Particle Transformer Classifier for supervised transfer learning.
+"""Particle Transformer classifier for supervised signal/background training.
 
-Train on R&D dataset with truth labels, then use classifier score as anomaly
-score on black box data. Classifier score = softmax probability of signal class.
+The model is trained on labelled R&D events, then its signal probability can be
+used as an anomaly score on black-box data.
 
-Forward contract: x -> logits — same as MLPClassifier.
+The forward interface matches ``MLPClassifier`` and returns class logits.
 """
 from __future__ import annotations
 
@@ -27,6 +27,7 @@ class ParTClassifier(nn.Module):
         num_heads: int = 8,
         num_layers: int = 8,
         num_cls_layers: int = 2,
+        use_pairwise: bool = True,
         use_amp: bool = True,
     ) -> None:
         super().__init__()
@@ -39,6 +40,7 @@ class ParTClassifier(nn.Module):
         self.input_dim = input_dim
         self.n_particles = n_particles
         self.max_particles = max_particles if max_particles is not None else n_particles
+        self.use_pairwise = bool(use_pairwise)
 
         self.preprocessor = LHCOPreprocessor(
             n_particles=n_particles,
@@ -50,6 +52,7 @@ class ParTClassifier(nn.Module):
             input_dim=3,
             num_classes=num_classes,
             pair_input_dim=4,
+            use_pairwise=self.use_pairwise,
             embed_dims=embed_dims,
             pair_embed_dims=pair_embed_dims,
             num_heads=num_heads,

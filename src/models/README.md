@@ -10,7 +10,7 @@ This directory contains all model implementations for the LHC Olympics 2020 anom
            +-------------------+-------------------+
            |                   |                   |
     SimpleAutoencoder    ParTAutoencoder      ParTClassifier
-      (baseline)          (Version A)         (Version C)
+      (baseline)         (unsupervised)        (supervised)
            |                   |                   |
       Linear layers    [LHCOPreprocessor]   [LHCOPreprocessor]
            |              |    |    |          |    |    |
@@ -32,12 +32,15 @@ This directory contains all model implementations for the LHC Olympics 2020 anom
 | `classifier.py` | `MLPClassifier` — 3-layer MLP classifier (baseline) |
 | `particle_transformer.py` | Core Particle Transformer model extracted from [weaver-core](https://github.com/hqucms/weaver-core) |
 | `preprocessing.py` | `LHCOPreprocessor` — converts flat LHCO2020 vectors to ParT input format |
-| `part_autoencoder.py` | `ParTAutoencoder` (Version A) — ParT encoder + MLP decoder for unsupervised anomaly detection |
-| `part_classifier.py` | `ParTClassifier` (Version C) — ParT with classification head for supervised transfer learning |
+| `part_autoencoder.py` | ParT encoder and MLP decoder for unsupervised anomaly detection |
+| `part_classifier.py` | ParT with a classification head for supervised learning |
 
 ## Particle Transformer (ParT)
 
-The Particle Transformer ([arXiv:2202.03772](https://arxiv.org/abs/2202.03772)) is a transformer-based architecture enhanced with **pairwise particle interaction features** as attention bias. It is state-of-the-art on jet tagging benchmarks.
+The Particle Transformer ([arXiv:2202.03772](https://arxiv.org/abs/2202.03772))
+adds **pairwise particle interactions** to ordinary self-attention. This gives
+the model direct access to useful kinematic relationships instead of asking it
+to infer all of them from single-particle features.
 
 ### Key Innovation: Pairwise Interaction Features
 
@@ -48,7 +51,9 @@ For every pair of particles (i, j), the model computes 4 physics-motivated quant
 - `ln(deltaR)` — angular distance in (rapidity, phi) space
 - `ln(m^2)` — invariant mass squared of the pair
 
-These are projected through Conv1d layers and **added as bias to the attention logits** before softmax. This injects relational physics directly into the attention mechanism — the model knows which particles are close, which share momentum, and which form resonances.
+Small Conv1d networks project these values into an attention bias before the
+softmax. Setting `use_pairwise: false` removes this bias and leaves standard
+scaled dot-product attention, which provides a clean ablation of the U matrix.
 
 ### Architecture Details
 
@@ -103,7 +108,7 @@ E  = pT * cosh(eta)
 
 The preprocessor is embedded inside the ParT wrapper models, so the training pipeline sees the same `(batch, input_dim)` interface as the baseline models.
 
-## Version A: ParTAutoencoder
+## ParTAutoencoder
 
 **Purpose:** Unsupervised anomaly detection — no labels needed.
 
@@ -122,7 +127,7 @@ python scripts/train.py --config configs/part_autoencoder.yaml \
     --data data/raw/events_LHCO2020_backgroundMC_Pythia.h5
 ```
 
-## Version C: ParTClassifier
+## ParTClassifier
 
 **Purpose:** Supervised transfer learning — requires labeled data.
 
@@ -151,6 +156,7 @@ model:
   n_particles: 700
   embed_dims: [128, 512, 128]     # embedding projection dimensions
   pair_embed_dims: [64, 64, 64]   # pairwise feature projection
+  use_pairwise: true               # false removes the U-matrix attention bias
   num_heads: 8                     # attention heads
   num_layers: 8                    # transformer blocks
   num_cls_layers: 2                # CaIT class-attention blocks

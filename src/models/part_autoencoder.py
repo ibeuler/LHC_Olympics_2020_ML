@@ -1,9 +1,10 @@
-"""Version A: Particle Transformer Autoencoder for unsupervised anomaly detection.
+"""Particle Transformer autoencoder for unsupervised anomaly detection.
 
-Uses ParT as encoder (CLS token = latent representation) and a simple MLP
-decoder for reconstruction. Anomaly score = reconstruction error (MSE).
+ParT compresses each event into its CLS representation, and a small MLP decodes
+that representation back to the original particle features. Per-event MSE is
+used as the anomaly score.
 
-Forward contract: x -> (x_hat, z) — same as SimpleAutoencoder.
+The forward interface matches ``SimpleAutoencoder``: ``x -> (x_hat, z)``.
 """
 from __future__ import annotations
 
@@ -27,6 +28,7 @@ class ParTAutoencoder(nn.Module):
         num_layers: int = 8,
         num_cls_layers: int = 2,
         decoder_hidden_dim: int = 256,
+        use_pairwise: bool = True,
         use_amp: bool = True,
     ) -> None:
         super().__init__()
@@ -39,6 +41,7 @@ class ParTAutoencoder(nn.Module):
         self.input_dim = input_dim
         self.n_particles = n_particles
         self.max_particles = max_particles if max_particles is not None else n_particles
+        self.use_pairwise = bool(use_pairwise)
         latent_dim = embed_dims[-1]
 
         self.preprocessor = LHCOPreprocessor(
@@ -51,6 +54,7 @@ class ParTAutoencoder(nn.Module):
             input_dim=3,
             num_classes=None,
             pair_input_dim=4,
+            use_pairwise=self.use_pairwise,
             embed_dims=embed_dims,
             pair_embed_dims=pair_embed_dims,
             num_heads=num_heads,

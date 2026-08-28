@@ -6,20 +6,12 @@ data:
   processed_dir: data/processed
 
 model:
-  type: part_autoencoder
+  type: autoencoder
   input_dim: 2100
-  n_particles: 700
-  max_particles: 128
-  embed_dims: [128, 512, 128]
-  pair_embed_dims: [64, 64, 64]
-  num_heads: 8
-  num_layers: 8
-  num_cls_layers: 2
-  decoder_hidden_dim: 256
-  use_pairwise: true
+  latent_dim: 16
 
 train:
-  batch_size: 128
+  batch_size: 512
   lr: 0.001
   epochs: 20
   device: cuda
