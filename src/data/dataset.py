@@ -81,8 +81,10 @@ class LHCDataset(Dataset):
                 last = np.asarray(feature_entry[1][:sample_size, -1])
                 finite = last[np.isfinite(last)]
                 if finite.size and np.all(np.isin(np.unique(finite), [0, 1])):
-                    self._label_in_last_column = True
-                    raw_dim -= 1
+                    # Avoid incorrectly treating zero-padding of 3D particle data as a label
+                    if not (raw_dim % 3 == 0 and np.all(finite == 0)):
+                        self._label_in_last_column = True
+                        raw_dim -= 1
 
             self.input_dim = raw_dim
 

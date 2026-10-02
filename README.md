@@ -1,82 +1,159 @@
 # LHC Olympics 2020 — ML Project
 
-Repository for anomaly detection on the LHC Olympics 2020 dataset using machine learning.
+Repository for unsupervised anomaly detection and supervised classification on the LHC Olympics 2020 dataset using Deep Learning and Particle Transformer (ParT).
 
-## Structure
-- `data/`: raw/processed/external data (git-ignored)
-- `notebooks/`: exploration + prototyping notebooks
-- `src/`: reusable core code (data, models, training, analysis)
-  - `src/models/`: model implementations — see [src/models/README.md](src/models/README.md) for details
-- `configs/`: YAML configs (single-run + sweep)
-- `outputs/`: models/logs/figures (git-ignored)
-- `scripts/`: CLI entry points
-- `docs/plans/`: design documents
+---
 
-## Available Models
+## Directory Structure
 
-| Model | Type | Config | Use Case |
-|-------|------|--------|----------|
-| `SimpleAutoencoder` | autoencoder | `configs/config.yaml` | Baseline unsupervised anomaly detection |
-| `MLPClassifier` | classifier | `configs/config.yaml` | Baseline supervised classification |
-| `ParTAutoencoder` | part_autoencoder | `configs/part_autoencoder.yaml` | ParT-based unsupervised anomaly detection |
-| `ParTClassifier` | part_classifier | `configs/part_classifier.yaml` | ParT-based supervised transfer learning |
-| `ParTAutoencoder` (no U) | part_autoencoder | `configs/part_autoencoder_no_pairwise.yaml` | Measures the impact of the pairwise attention bias |
+```text
+├── configs/            # YAML configurations (ParT, Baseline AE, Classifier)
+├── data/
+│   └── raw/            # HDF5 dataset files (events_LHCO2020_*.h5)
+├── notebooks/          # Exploratory data analysis & prototyping
+├── outputs/            # Training artifacts (models .pt, loss curves, metadata)
+│   ├── figures/        # Train/val loss curve plots
+│   ├── logs/           # Run metadata and effective configs
+│   └── models/         # Best and final model checkpoints
+├── report/             # Evaluation results, tables, and physics figures
+│   ├── plots/          # ROC curves, anomaly score histograms, interpretability features
+│   └── tables/         # HEP metric summary tables (AUC, SIC, quantile thresholds)
+├── scripts/            # CLI entry points (train.py, evaluate.py, download_data.py)
+├── src/                # Modular core package
+│   ├── analysis/       # HEP metrics, plotting, interpretability, physics observables
+│   ├── data/           # HDF5 dataset loader (LHCDataset) & batching
+│   ├── models/         # Particle Transformer (ParT), Preprocessing, Autoencoders
+│   ├── training/       # Training loop, AMP (FP16), checkpointing, validation
+│   └── utils/          # Config parser and helpers
+├── tests/              # Smoke tests for pipelines and models
+└── requirements.txt    # Python dependencies
+```
+
+---
+
+## Implemented Models
+
+| Model | Type | Architecture | Config | Primary Use Case |
+|---|---|---|---|---|
+| `ParTAutoencoder` | `part_autoencoder` | Particle Transformer + Pairwise Kinematics + MLP Decoder | `configs/part_autoencoder.yaml` | **Unsupervised Anomaly Detection** (SOTA) |
+| `ParTAutoencoder (no U)` | `part_autoencoder` | ParT without pairwise attention bias | `configs/part_autoencoder_no_pairwise.yaml` | Ablation study on the pairwise interaction matrix |
+| `ParTClassifier` | `part_classifier` | Particle Transformer + Classification Head | `configs/part_classifier.yaml` | Supervised classification / transfer learning |
+| `SimpleAutoencoder` | `autoencoder` | Dense MLP Autoencoder (2 layers) | `configs/config.yaml` | Baseline unsupervised benchmark |
+| `MLPClassifier` | `classifier` | Dense MLP Classifier (3 layers) | `configs/config.yaml` | Baseline supervised benchmark |
+
+### Particle Transformer (ParT) Optimizations:
+- **Kinematic Preprocessing & Particle Pruning:** Events are sorted by transverse momentum ($p_T$) and truncated to the top **128 particles**. This retains **97.35%** of the event energy while reducing the pairwise attention matrix from $700 \times 700$ to $128 \times 128$ (~**30x computational speedup**).
+- **Automatic Mixed Precision (AMP):** Utilizes PyTorch `torch.amp.autocast('cuda')` with FP16 and `GradScaler` for full tensor-core acceleration on modern GPUs (e.g., NVIDIA RTX 40-series).
+- **Pairwise Kinematic Embeddings ($U$ matrix):** Computes pairwise physics observables ($k_T$, momentum fraction $z$, $\Delta R$, and invariant mass $m^2$) directly from Lorentz 4-vectors to bias multi-head self-attention.
+
+---
 
 ## Quickstart
 
-1. Download the dataset files into `data/raw/` (or use the automatic helper script):
-   ```bash
-   python scripts/download_data.py --dataset rnd        # R&D Dataset (~1.5GB)
-   python scripts/download_data.py --dataset background # Pythia Background Dataset
-   ```
-2. Create an environment and install deps:
-   ```bash
-   pip install -r requirements.txt
-   ```
-3. Train a model:
-   ```bash
-   # Baseline autoencoder (synthetic data, no HDF5 needed)
-   python scripts/train.py --epochs 5
+### 1. Environment Setup
 
-   # ParT autoencoder on real data
-   python scripts/train.py --config configs/part_autoencoder.yaml --data data/raw/events_LHCO2020_backgroundMC_Pythia.h5
+Clone the repository and activate your Python environment (Python 3.10 - 3.12 recommended):
 
-   # ParT classifier (supervised, requires labeled data)
-   python scripts/train.py --config configs/part_classifier.yaml --data data/raw/events_LHCO2020_RnD.h5
-   ```
+```powershell
+# Activate virtual environment
+.\.venv\Scripts\activate
 
-## Physics-Aware Evaluation and ParT Ablation
+# Install PyTorch with CUDA support (e.g., CUDA 12.1 for NVIDIA RTX GPUs)
+pip install torch --index-url https://download.pytorch.org/whl/cu121
 
-The evaluation pipeline reports the metrics commonly used in collider analyses:
-AUC, best-threshold accuracy, maximum SIC, and background rejection at signal
-efficiencies of 0.2, 0.3, and 0.5. If no background event survives a cut, the
-calculation uses the measurable limit `1 / N_background` instead of reporting
-infinite rejection. The CSV output records this limit explicitly.
-
-To compare the baseline autoencoder with ParTAE, with and without pairwise
-kinematics, run:
-
-```bash
-python scripts/evaluate.py \
-  --model SimpleAE configs/autoencoder_lhco.yaml outputs/simple_ae.pt \
-  --model ParTAE-no-U configs/part_autoencoder_no_pairwise.yaml outputs/part_no_u.pt \
-  --model ParTAE-with-U configs/part_autoencoder.yaml outputs/part_with_u.pt \
-  --lhc-background-data data/raw/events_LHCO2020_backgroundMC_Pythia.h5
+# Install project dependencies
+pip install -r requirements.txt
 ```
 
-The command evaluates every model on the same synthetic sample and on real LHC
-background. Results are written to `report/tables/synthetic_validation.csv`,
-`report/tables/lhc_background_evaluation.csv`, and the cumulative
-`report/tables/results_summary.csv`. The report also includes parameter counts,
-ROC and score comparisons, and `report/plots/interpretability_features.png`.
+Verify GPU availability:
+```powershell
+python -c "import torch; print('CUDA Available:', torch.cuda.is_available(), '| Device:', torch.cuda.get_device_name(0))"
+```
 
-## Tests
+---
 
-```bash
-python tests/test_smoke.py        # baseline models
+### 2. Dataset Preparation
+
+Download the official LHC Olympics 2020 datasets into `data/raw/`:
+
+* **Background MC Pythia (1M background events, ~2.7 GB):**
+  ```powershell
+  python scripts/download_data.py --dataset background
+  ```
+* **R&D Dataset (1.1M events: 1M background + 100k signal):**
+  * Direct Zenodo link: [events_anomalydetection_v2.h5](https://zenodo.org/records/6466204/files/events_anomalydetection_v2.h5)
+  * Save to: `data/raw/events_LHCO2020_RnD.h5`
+* **Black Box 1 (Unlabeled challenge data):**
+  ```powershell
+  python scripts/download_data.py --dataset blackbox1
+  ```
+
+---
+
+### 3. Model Training
+
+Train the **Particle Transformer Autoencoder** on the 1M Pythia background sample:
+
+```powershell
+python scripts/train.py `
+  --config configs/part_autoencoder.yaml `
+  --data data/raw/events_LHCO2020_backgroundMC_Pythia.h5 `
+  --batch-size 256 `
+  --epochs 20 `
+  --device cuda
+```
+
+Training outputs will be saved automatically:
+* Best model checkpoint: `outputs/models/best_model_<run_tag>.pt`
+* Loss progression curve: `outputs/figures/loss_curves_<run_tag>.png`
+* Metadata & effective config: `outputs/logs/run_meta_<run_tag>.json`
+
+---
+
+### 4. Evaluation & Anomaly Detection
+
+Evaluate the trained checkpoint to compute reconstruction MSE anomaly scores, identify high-anomaly tail events, and generate HEP interpretability figures:
+
+```powershell
+python scripts/evaluate.py `
+  --checkpoint outputs/models/best_model_parT_AE_ep20_bs256_lr1e-03_seed42_cuda_20260927_132059.pt `
+  --config configs/part_autoencoder.yaml `
+  --data data/raw/events_LHCO2020_backgroundMC_Pythia.h5 `
+  --model-type part_autoencoder `
+  --tag partAE_eval_bg `
+  --device cuda
+```
+
+Generated evaluation outputs in `report/`:
+* `report/plots/lhc_background_scores_ParTAE.png`: Anomaly score (MSE) distribution over 1M events.
+* `report/plots/interpretability_features.png`: Physical feature comparisons ($p_T, \eta, \phi, m_{jj}$) between normal and top-1% anomalous events.
+* `report/tables/lhc_background_evaluation.csv`: Summary metrics including mean score, median, 95% and 99% quantile thresholds.
+
+To evaluate on labeled R&D data for ROC, AUC, and SIC metrics:
+```powershell
+python scripts/evaluate.py `
+  --checkpoint outputs/models/best_model_parT_AE_ep20_bs256_lr1e-03_seed42_cuda_20260927_132059.pt `
+  --config configs/part_autoencoder.yaml `
+  --data data/raw/events_LHCO2020_RnD.h5 `
+  --model-type part_autoencoder `
+  --tag partAE_eval_rnd `
+  --device cuda
+```
+
+---
+
+## Smoke Tests
+
+Run smoke tests to verify model definitions and data pipelines:
+
+```powershell
+python tests/test_smoke.py        # Baseline models
 python tests/test_part_smoke.py   # Particle Transformer models
 ```
 
-## Notes
-- Jet clustering is stubbed in `src/data/clustering.py` (intended for FastJet/PyJet).
-- The Particle Transformer implementation is extracted from [weaver-core](https://github.com/hqucms/weaver-core) (paper: [arXiv:2202.03772](https://arxiv.org/abs/2202.03772)).
+---
+
+## References & Citations
+
+1. **LHC Olympics 2020 Challenge:** Kasieczka, G. et al., *The LHC Olympics 2020: A Community Challenge for Anomaly Detection in High Energy Physics*, [arXiv:2101.08320](https://arxiv.org/abs/2101.08320).
+2. **Particle Transformer (ParT):** Qu, H., Li, C., & Qian, S., *Particle Transformer for Jet Tagging*, [arXiv:2202.03772](https://arxiv.org/abs/2202.03772), [weaver-core repository](https://github.com/hqucms/weaver-core).

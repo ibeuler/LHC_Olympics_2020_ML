@@ -10,17 +10,17 @@ from pathlib import Path
 DATASETS = {
     "rnd": {
         "filename": "events_LHCO2020_RnD.h5",
-        "url": "https://zenodo.org/records/3539073/files/events_LHCO2020_RnD.h5",
-        "description": "R&D Dataset (110k events: 100k background + 10k signal)",
+        "url": "https://zenodo.org/records/6466204/files/events_anomalydetection_v2.h5?download=1",
+        "description": "R&D Dataset (1.1M events: 1M background + 100k signal)",
     },
     "background": {
         "filename": "events_LHCO2020_backgroundMC_Pythia.h5",
-        "url": "https://zenodo.org/records/3715873/files/events_LHCO2020_backgroundMC_Pythia.h5",
+        "url": "https://zenodo.org/records/4536624/files/events_LHCO2020_backgroundMC_Pythia.h5?download=1",
         "description": "Background MC Pythia Dataset (1M background events)",
     },
     "blackbox1": {
         "filename": "events_LHCO2020_BlackBox1.h5",
-        "url": "https://zenodo.org/records/3715502/files/events_LHCO2020_BlackBox1.h5",
+        "url": "https://zenodo.org/records/4536624/files/events_LHCO2020_BlackBox1.h5?download=1",
         "description": "Black Box 1 Dataset (Unlabeled challenge data)",
     },
 }
@@ -28,25 +28,31 @@ DATASETS = {
 
 def _download_file(url: str, dest: Path) -> None:
     print(f"Downloading {url} -> {dest} ...")
-
-    def _progress(count: int, block_size: int, total_size: int) -> None:
-        downloaded = count * block_size
-        if total_size > 0:
-            percent = min(100.0, (downloaded / total_size) * 100)
-            mb_downloaded = downloaded / (1024 * 1024)
-            mb_total = total_size / (1024 * 1024)
-            sys.stdout.write(
-                f"\rProgress: {percent:5.1f}% ({mb_downloaded:.1f} MB / {mb_total:.1f} MB)"
-            )
-        else:
-            mb_downloaded = downloaded / (1024 * 1024)
-            sys.stdout.write(f"\rDownloaded: {mb_downloaded:.1f} MB")
-        sys.stdout.flush()
-
     dest.parent.mkdir(parents=True, exist_ok=True)
     temp_dest = dest.with_suffix(".tmp")
+    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
     try:
-        urllib.request.urlretrieve(url, temp_dest, reporthook=_progress)
+        with urllib.request.urlopen(req) as resp, open(temp_dest, "wb") as f:
+            total_size = int(resp.headers.get("Content-Length", 0))
+            downloaded = 0
+            block_size = 1024 * 1024  # 1 MB blocks
+            while True:
+                chunk = resp.read(block_size)
+                if not chunk:
+                    break
+                f.write(chunk)
+                downloaded += len(chunk)
+                if total_size > 0:
+                    percent = min(100.0, (downloaded / total_size) * 100)
+                    mb_downloaded = downloaded / (1024 * 1024)
+                    mb_total = total_size / (1024 * 1024)
+                    sys.stdout.write(
+                        f"\rProgress: {percent:5.1f}% ({mb_downloaded:.1f} MB / {mb_total:.1f} MB)"
+                    )
+                else:
+                    mb_downloaded = downloaded / (1024 * 1024)
+                    sys.stdout.write(f"\rDownloaded: {mb_downloaded:.1f} MB")
+                sys.stdout.flush()
         print()
         temp_dest.replace(dest)
         print(f"Successfully saved to {dest}")

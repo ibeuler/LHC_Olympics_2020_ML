@@ -1,16 +1,15 @@
-# Core
-numpy==2.4.2
-scipy==1.17.1
-pandas==3.0.1
-pyyaml==6.0.3
-h5py==3.15.1
-hdf5plugin==6.0.0
-scikit-learn==1.8.0
+numpy
+scipy
+pandas
+pyyaml
+h5py
+hdf5plugin
+scikit-learn
 # Plotting
-matplotlib==3.10.8
-mplhep==1.1.2
-# ML (choose your flavor)
-torch==2.10.0
+matplotlib
+mplhep
+# ML (torch installed separately with CUDA)
+# torch
 # Optional (often tricky on Windows/macOS; install separately if needed)
 # pyjet
 # fastjet
